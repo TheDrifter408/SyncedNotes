@@ -5,54 +5,72 @@ import { Note } from '@prisma/client';
 
 @Injectable()
 export class SyncService {
-  constructor(private prisma: Prisma) { }
+  constructor(private prisma: Prisma) {}
 
   async processSync(userId: number, incomingNotes: SyncNotesDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const clientChanges = incomingNotes.notes || [];
 
-      const results: Note[] = [];
+    const lastSyncedAt = incomingNotes.lastSyncedAt
+      ? incomingNotes.lastSyncedAt
+      : new Date(0);
 
-      for (const incomingNote of incomingNotes.notes) {
+    const serverTimeCheckpoint = new Date(0);
 
-        const existingNote = await tx.note.findUnique({
+    const processedIds: string[] = [];
+    const conflicts: string[] = [];
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const clientNote of clientChanges) {
+        const serverNote = await tx.note.findUnique({
           where: {
-            id: incomingNote.id
-          }
+            id: clientNote.id,
+          },
+          select: {
+            id: true,
+            userId: true,
+            updatedAt: true,
+          },
         });
+        if (serverNote) {
+          if (serverNote.userId !== userId) continue;
 
-        if (existingNote && existingNote.userId !== userId) {
-          // If it belongs to someone else, we skip it entirely
-          continue;
-        }
+          // Last Write Wins execution based on comparing LastUpdated timestamps
+          if (clientNote.updatedAt < serverNote.updatedAt) {
+            conflicts.push(clientNote.id);
+            continue;
+          }
 
-        if (!existingNote || new Date(incomingNote.updatedAt) > existingNote.updatedAt) {
-
-          const updated = await tx.note.upsert({
+          await tx.note.update({
             where: {
-              id: incomingNote.id,
+              id: clientNote.id,
             },
-            create: {
-              ...incomingNote,
-              userId,
+            data: {
+              title: clientNote.title,
+              version: 1,
+              content: clientNote.content,
+              isDeleted: clientNote.isDeleted,
+              updatedAt: clientNote.updatedAt,
             },
-            update: {
-              title: incomingNote.title,
-              content: incomingNote.content,
-              updatedAt: incomingNote.updatedAt,
-              isDeleted: incomingNote.isDeleted,
-              version: {
-                increment: 1
-              }
-            }
           });
-
-          results.push(updated);
         } else {
-          results.push(existingNote);
+          if (clientNote.isDeleted) {
+            processedIds.push(clientNote.id);
+            continue;
+          }
+          await tx.note.create({
+            data: {
+              id: clientNote.id,
+              userId: userId,
+              title: clientNote.title,
+              version: 1,
+              content: clientNote.content,
+              isDeleted: clientNote.isDeleted,
+              updatedAt: clientNote.updatedAt,
+            },
+          });
+          processedIds.push(clientNote.id);
         }
       }
-      return results;
     });
   }
-
 }

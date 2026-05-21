@@ -1,5 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsDate, IsNotEmpty, IsOptional, IsString, IsUUID, IsBoolean } from 'class-validator';
+import {
+  IsDate,
+  IsNotEmpty,
+  IsString,
+  IsUUID,
+  IsBoolean,
+  IsObject,
+} from 'class-validator';
 
 export class BaseNoteDto {
   @IsUUID()
@@ -8,11 +15,11 @@ export class BaseNoteDto {
 
   @IsString()
   @IsNotEmpty()
-  title!: string
+  title!: string;
 
-  @IsString()
-  @IsOptional()
-  content!: string
+  @IsObject()
+  @IsNotEmpty()
+  content!: any; // To Map seamlessly to Prisma's native JSON typing
 
   @IsDate()
   @Type(() => Date)
