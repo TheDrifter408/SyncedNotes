@@ -1,5 +1,11 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsDate, IsOptional, ValidateNested } from 'class-validator';
+import {
+  IsArray,
+  IsDate,
+  IsOptional,
+  IsString,
+  ValidateNested,
+} from 'class-validator';
 import { BaseNoteDto } from './base-note.dto';
 
 export class SyncNotesDto {
@@ -7,6 +13,10 @@ export class SyncNotesDto {
   @IsOptional()
   @Type(() => Date)
   lastSyncedAt?: Date;
+
+  @IsString()
+  @IsOptional()
+  cursor?: string;
 
   @IsArray()
   @ValidateNested({ each: true })

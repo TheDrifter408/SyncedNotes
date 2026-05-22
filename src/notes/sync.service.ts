@@ -1,7 +1,7 @@
 import { Prisma } from '../prisma/prisma.service';
 import { Injectable } from '@nestjs/common';
 import { SyncNotesDto } from './dto/sync-notes.dto';
-import { Note } from '@prisma/client';
+import { NoteWhereInput, NoteWhereUniqueInput } from 'generated/prisma/models';
 
 @Injectable()
 export class SyncService {
@@ -16,9 +16,12 @@ export class SyncService {
 
     const serverTimeCheckpoint = new Date(0);
 
+    const PAGE_SIZE = 100;
+
     const processedIds: string[] = [];
     const conflicts: string[] = [];
 
+    // Phase 1: Upstream reconciliation Loop
     await this.prisma.$transaction(async (tx) => {
       for (const clientNote of clientChanges) {
         const serverNote = await tx.note.findUnique({
@@ -72,5 +75,66 @@ export class SyncService {
         }
       }
     });
+
+    // Phase 2: Cursor based downstream fetching
+    const baseWhereClause: NoteWhereInput = {
+      userId: userId,
+      updatedAt: {
+        gt: lastSyncedAt,
+        lte: serverTimeCheckpoint,
+      },
+      id: {
+        notIn: processedIds.concat(conflicts),
+      },
+    };
+
+    // Decode incoming pagination token if provided by client
+    let cursorCondition: NoteWhereUniqueInput | undefined = undefined;
+    if (incomingNotes.cursor) {
+      try {
+        const decodedJson = JSON.parse(
+          Buffer.from(incomingNotes.cursor, 'base64').toString('utf-8'),
+        ) as { id: string; updatedAt: string };
+        cursorCondition = { id: decodedJson.id };
+      } catch {
+        cursorCondition = undefined;
+      }
+    }
+    const downstreamChanges = await this.prisma.note.findMany({
+      where: baseWhereClause,
+      take: PAGE_SIZE + 1,
+      cursor: cursorCondition,
+      skip: cursorCondition ? 1 : 0,
+      orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
+    });
+
+    const serverWonConflicts = await this.prisma.note.findMany({
+      where: { id: { in: conflicts } },
+    });
+
+    const combinedChanges = [...downstreamChanges, ...serverWonConflicts];
+    const hasMore = combinedChanges.length > PAGE_SIZE;
+
+    // Truncate the current array snapshot back to the explicit PAGE_SIZE limit
+    const targetedChanges = combinedChanges.slice(0, PAGE_SIZE);
+    let nextCursor: string | null = null;
+    if (hasMore && targetedChanges.length > 0) {
+      const lastNoteInBatch = targetedChanges[targetedChanges.length - 1];
+      const cursorPayload = {
+        id: lastNoteInBatch.id,
+        updatedAt: lastNoteInBatch.updatedAt.toISOString(),
+      };
+
+      nextCursor = Buffer.from(JSON.stringify(cursorPayload)).toString(
+        'base64',
+      );
+    }
+    return {
+      processedIds,
+      changes: targetedChanges,
+      nextCursor,
+      hasMore,
+      serverTime: serverTimeCheckpoint.toISOString(),
+    };
   }
 }

@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDate,
@@ -19,7 +20,7 @@ export class BaseNoteDto {
 
   @IsObject()
   @IsNotEmpty()
-  content!: any; // To Map seamlessly to Prisma's native JSON typing
+  content!: Prisma.InputJsonValue; // To Map seamlessly to Prisma's native JSON typing
 
   @IsDate()
   @Type(() => Date)
