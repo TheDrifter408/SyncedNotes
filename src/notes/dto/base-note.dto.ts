@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsDate,
@@ -8,6 +7,7 @@ import {
   IsBoolean,
   IsObject,
 } from 'class-validator';
+import { Prisma } from 'generated/prisma/browser';
 
 export class BaseNoteDto {
   @IsUUID()
