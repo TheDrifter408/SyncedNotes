@@ -14,7 +14,7 @@ export class SyncService {
       ? incomingNotes.lastSyncedAt
       : new Date(0);
 
-    const serverTimeCheckpoint = new Date(0);
+    const serverTimeCheckpoint = new Date();
 
     const PAGE_SIZE = 100;
 
