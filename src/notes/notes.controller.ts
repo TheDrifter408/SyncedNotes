@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+} from '@nestjs/common';
 import { NotesService } from './notes.service';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
@@ -14,7 +23,7 @@ export class NotesController {
   constructor(
     private readonly notesService: NotesService,
     private readonly syncService: SyncService,
-  ) { }
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Post()
@@ -36,7 +45,11 @@ export class NotesController {
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  update(@GetUser() user: RequestUser, @Param('id') id: string, @Body() updateNoteDto: UpdateNoteDto) {
+  update(
+    @GetUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() updateNoteDto: UpdateNoteDto,
+  ) {
     return this.notesService.update(user.id, id, updateNoteDto);
   }
 
@@ -48,6 +61,6 @@ export class NotesController {
 
   @Post('sync')
   async sync(@GetUser() user: RequestUser, @Body() syncDto: SyncNotesDto) {
-    return this.syncService.processSync(user.id, syncDto)
+    return this.syncService.processSync(user.id, syncDto);
   }
 }
