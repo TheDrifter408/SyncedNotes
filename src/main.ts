@@ -17,8 +17,13 @@ async function bootstrap() {
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
 
+  const allowedOrigins = [
+    'http://localhost:5173',
+    process.env.FRONTEND_URL,
+  ].filter(Boolean);
+
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   });
@@ -35,7 +40,7 @@ async function bootstrap() {
           if (constraints) {
             acc[error.property] = constraints[0];
           }
-          return error;
+          return acc;
         }, {});
         return new BadRequestException({ errors: result });
       },
@@ -48,7 +53,8 @@ async function bootstrap() {
       },
     }),
   );
-
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT || 3000;
+  await app.listen(port, '0.0.0.0');
 }
+
 bootstrap();
