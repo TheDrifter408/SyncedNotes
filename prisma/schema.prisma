@@ -23,14 +23,15 @@ model User {
 }
 
 model Note {
-  id        String   @id @default(uuid())
-  title     String
-  content   Json
-  version   Int      @default(1)
-  updatedAt DateTime
-  isDeleted Boolean  @default(false)
-  userId    Int
-  user      User     @relation(fields: [userId], references: [id])
+  id            String   @id @default(uuid())
+  title         String
+  content       Json
+  searchContent String   @default("")
+  version       Int      @default(1)
+  updatedAt     DateTime
+  isDeleted     Boolean  @default(false)
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id])
 
-  @@index([userId, updatedAt]) // Critical composite for fast delta indexing
+  @@index([userId, updatedAt, searchContent]) // Critical composite for fast delta indexing
 }

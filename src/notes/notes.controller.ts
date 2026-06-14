@@ -16,6 +16,7 @@ import type { RequestUser } from 'src/auth/types/JwtPayload';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { SyncNotesDto } from './dto/sync-notes.dto';
 import { SyncService } from './sync.service';
+import { SearchNotesDto } from './dto/search-notes.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('notes')
@@ -62,5 +63,13 @@ export class NotesController {
   @Post('sync')
   async sync(@GetUser() user: RequestUser, @Body() syncDto: SyncNotesDto) {
     return this.syncService.processSync(user.id, syncDto);
+  }
+
+  @Post('search')
+  async searchNotes(
+    @GetUser() user: RequestUser,
+    @Body() searchDto: SearchNotesDto,
+  ) {
+    return this.notesService.searchNotes(user.id, searchDto.stringQuery);
   }
 }
