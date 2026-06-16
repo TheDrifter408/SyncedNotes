@@ -22,6 +22,9 @@ export class BaseNoteDto {
   @IsNotEmpty()
   content!: Prisma.InputJsonValue; // To Map seamlessly to Prisma's native JSON typing
 
+  @IsString()
+  searchContent!: string;
+
   @IsDate()
   @Type(() => Date)
   updatedAt!: Date;

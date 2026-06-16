@@ -6,7 +6,6 @@ import {
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { Prisma } from '../prisma/prisma.service';
-import { Note } from '@prisma/client';
 import { SearchNoteResult } from '@/types';
 
 @Injectable()
@@ -92,7 +91,7 @@ export class NotesService {
     stringQuery: string,
   ): Promise<SearchNoteResult[]> {
     if (!stringQuery.trim()) return [];
-
+    console.log('Search ', stringQuery);
     const result = await this.prisma.$queryRaw<SearchNoteResult[]>`
       SELECT id, title, "updatedAt",
       ts_headline(
