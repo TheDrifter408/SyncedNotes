@@ -90,28 +90,47 @@ export class NotesService {
     userId: number,
     stringQuery: string,
   ): Promise<SearchNoteResult[]> {
-    if (!stringQuery.trim()) return [];
-    console.log('Search ', stringQuery);
+    if (!stringQuery.trim()) {
+      const result = await this.prisma.note.findMany({
+        select: {
+          id: true,
+          title: true,
+          updatedAt: true,
+          searchContent: true,
+        },
+        where: {
+          userId,
+          isDeleted: false,
+        },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+        take: 5,
+      });
+      return result;
+    }
     const result = await this.prisma.$queryRaw<SearchNoteResult[]>`
       SELECT id, title, "updatedAt",
       ts_headline(
-        'english',
+        'simple',
         "searchContent",
-        websearch_to_tsquery('english', ${stringQuery}),
+        websearch_to_tsquery('simple', '"'  || ${stringQuery} || '"'),
         'StartSel=<mark>, StopSel=</mark>, MaxWords=30, FragmentDelimiter="..." '
-      ) as snippet
+      ) as "searchContent"
       FROM "Note"
       WHERE "userId" = ${userId}
         AND "isDeleted" = false
         AND to_tsvector(
           'english',
           coalesce("title", '') || ' ' || coalesce("searchContent", '')
-          ) @@ plainto_tsquery('english', ${stringQuery})
+          ) @@ websearch_to_tsquery('english', '"' ||  ${stringQuery} || '"')
         ORDER BY ts_rank(
           to_tsvector(
           'english',
           coalesce("title", '') || ' ' || coalesce("searchContent", '')),
-          plainto_tsquery('english', ${stringQuery})) DESC
+          websearch_to_tsquery('english', '"' || ${stringQuery} || '"')
+          )
+        DESC
         LIMIT 20;
       `;
     return result;
