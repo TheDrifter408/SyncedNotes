@@ -30,9 +30,9 @@ model Note {
   content       Json
   searchContent String   @default("")
   version       Int      @default(1)
-  folderId      String
-  folder        Folder   @relation(fields: [folderId], references: [id])
-  updatedAt     DateTime
+  folderId      String?
+  folder        Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  updatedAt     DateTime @updatedAt
   isDeleted     Boolean  @default(false)
   userId        Int
   user          User     @relation(fields: [userId], references: [id])
