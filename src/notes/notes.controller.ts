@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { NotesService } from './notes.service';
 import { CreateNoteDto } from './dto/create-note.dto';
@@ -16,6 +17,7 @@ import type { RequestUser } from 'src/auth/types/JwtPayload';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { SyncNotesDto } from './dto/sync-notes.dto';
 import { SyncService } from './sync.service';
+import { SearchNotesDto } from './dto/search-notes.dto';
 
 @UseGuards(JwtAuthGuard)
 @Controller('notes')
@@ -35,6 +37,15 @@ export class NotesController {
   @Get()
   findAll(@GetUser() user: RequestUser) {
     return this.notesService.findAll(user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('search')
+  async searchNotes(
+    @GetUser() user: RequestUser,
+    @Query() searchDto: SearchNotesDto,
+  ) {
+    return this.notesService.searchNotes(user.id, searchDto.query);
   }
 
   @UseGuards(JwtAuthGuard)

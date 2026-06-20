@@ -1,12 +1,16 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
 import { Prisma } from '../prisma/prisma.service';
-import { BaseNoteDto } from './dto/base-note.dto';
+import { SearchNoteResult } from '@/types';
 
 @Injectable()
 export class NotesService {
-  constructor(private prisma: Prisma) { }
+  constructor(private prisma: Prisma) {}
 
   async create(userId: number, createNoteDto: CreateNoteDto) {
     const note = await this.prisma.note.create({
@@ -28,7 +32,7 @@ export class NotesService {
       where: {
         userId,
       },
-      orderBy: { updatedAt: 'desc' }
+      orderBy: { updatedAt: 'desc' },
     });
     return notes;
   }
@@ -38,7 +42,7 @@ export class NotesService {
       where: {
         id,
         userId,
-      }
+      },
     });
 
     if (!note) {
@@ -56,8 +60,8 @@ export class NotesService {
       },
       data: {
         ...updateNoteDto,
-        version: { increment: 1 }
-      }
+        version: { increment: 1 },
+      },
     });
 
     if (!updated) {
@@ -71,8 +75,8 @@ export class NotesService {
     const deleted = await this.prisma.note.delete({
       where: {
         id,
-        userId
-      }
+        userId,
+      },
     });
 
     if (!deleted) {
@@ -82,4 +86,53 @@ export class NotesService {
     return deleted;
   }
 
+  async searchNotes(
+    userId: number,
+    stringQuery: string,
+  ): Promise<SearchNoteResult[]> {
+    if (!stringQuery.trim()) {
+      const result = await this.prisma.note.findMany({
+        select: {
+          id: true,
+          title: true,
+          updatedAt: true,
+          searchContent: true,
+        },
+        where: {
+          userId,
+          isDeleted: false,
+        },
+        orderBy: {
+          updatedAt: 'desc',
+        },
+        take: 5,
+      });
+      return result;
+    }
+    const result = await this.prisma.$queryRaw<SearchNoteResult[]>`
+      SELECT id, title, "updatedAt",
+      ts_headline(
+        'simple',
+        "searchContent",
+        websearch_to_tsquery('simple', '"'  || ${stringQuery} || '"'),
+        'StartSel=<mark>, StopSel=</mark>, MaxWords=30, FragmentDelimiter="..." '
+      ) as "searchContent"
+      FROM "Note"
+      WHERE "userId" = ${userId}
+        AND "isDeleted" = false
+        AND to_tsvector(
+          'english',
+          coalesce("title", '') || ' ' || coalesce("searchContent", '')
+          ) @@ websearch_to_tsquery('english', '"' ||  ${stringQuery} || '"')
+        ORDER BY ts_rank(
+          to_tsvector(
+          'english',
+          coalesce("title", '') || ' ' || coalesce("searchContent", '')),
+          websearch_to_tsquery('english', '"' || ${stringQuery} || '"')
+          )
+        DESC
+        LIMIT 20;
+      `;
+    return result;
+  }
 }
