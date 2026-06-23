@@ -125,25 +125,22 @@ export class SyncService {
             tracking.noteConflicts.push(clientNote.id);
             continue;
           }
-          await tx.note.update({
-            where: { id: clientNote.id },
-            data: {
-              ...clientNote,
-              userId: userId,
-            },
-          });
-        } else {
-          if (clientNote.isDeleted) {
-            tracking.processedNoteIds.push(clientNote.id);
-            continue;
-          }
-          await tx.note.create({
-            data: {
-              ...clientNote,
-              userId: userId,
-            },
-          });
         }
+        if (!serverNote && clientNote.isDeleted) {
+          tracking.processedNoteIds.push(clientNote.id);
+          continue;
+        }
+
+        await tx.note.upsert({
+          where: { id: clientNote.id },
+          update: {
+            ...clientNote,
+          },
+          create: {
+            ...clientNote,
+            userId: userId,
+          },
+        });
         tracking.processedNoteIds.push(clientNote.id);
       }
     });
