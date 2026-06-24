@@ -7,7 +7,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { BaseNoteDto } from './base-note.dto';
-import { BaseFolderDto } from './base-folder.dto';
+import { BaseFolderDto } from '@/folders/dto/base-folder.dto';
 
 export class SyncNotesDto {
   @IsDate()
