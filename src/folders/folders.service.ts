@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateFolderDto } from './dto/create-folder.dto';
 import { UpdateFolderDto } from './dto/update-folder.dto';
 import { Prisma } from '@/prisma/prisma.service';
@@ -8,29 +8,78 @@ export class FoldersService {
   constructor(private prisma: Prisma) {}
 
   async create(userId: number, createFolderDto: CreateFolderDto) {
-    const found = await this.prisma.folder({
+    const found = await this.prisma.folder.findUnique({
       where: {
-        id: userId,
+        id: createFolderDto.id,
+        userId: userId,
+        isDeleted: false,
+      },
+      select: {
+        id: true,
+        name: true,
+        color: true,
+        updatedAt: true,
+        isDeleted: true,
       },
     });
     if (found) {
       return found;
     }
+    const created = await this.prisma.folder.create({
+      data: {
+        ...createFolderDto,
+        userId: userId,
+      },
+    });
+    return created;
   }
 
-  async findAll(userId: number) {
-    return `This action returns all folders`;
-  }
-
-  async findOne(userId: number, folderId: number) {
-    return `This action returns a #${id} folder`;
+  async findOne(userId: number, folderId: string) {
+    const found = await this.prisma.folder.findFirst({
+      where: {
+        id: folderId,
+        userId,
+      },
+    });
+    if (!found) {
+      throw new NotFoundException('Folder not found');
+    }
+    return found;
   }
 
   async update(userId: number, updateFolderDto: UpdateFolderDto) {
-    return `This action updates a #${id} folder`;
+    const found = await this.prisma.folder.findFirst({
+      where: {
+        id: updateFolderDto.id,
+        userId,
+      },
+    });
+    if (!found) {
+      throw new NotFoundException('Folder not found');
+    }
+    const updated = await this.prisma.folder.update({
+      where: {
+        id: found.id,
+        userId,
+      },
+      data: {
+        ...updateFolderDto,
+        userId,
+      },
+    });
+    return updated;
   }
 
-  async remove(userId: number, folderId: number) {
-    return `This action removes a #${id} folder`;
+  async remove(userId: number, folderId: string) {
+    const folderToDelete = await this.prisma.folder.delete({
+      where: {
+        id: folderId,
+        userId,
+      },
+    });
+    if (!folderToDelete) {
+      throw new NotFoundException('Folder Not found');
+    }
+    return { data: null, message: 'Folder successfully deleted' };
   }
 }

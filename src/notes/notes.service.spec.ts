@@ -6,7 +6,6 @@ import { SyncService } from './sync.service';
 
 describe('NotesService', () => {
   let service: NotesService;
-  let prisma: Prisma;
 
   // 1. Create a Mock Prisma Object
   const mockPrisma = {
@@ -54,7 +53,9 @@ describe('NotesService', () => {
     it('should throw NotFoundException if note does not exist', async () => {
       mockPrisma.note.findUnique.mockResolvedValue(null);
 
-      await expect(service.findOne(123, '999')).rejects.toThrow(NotFoundException);
+      await expect(service.findOne(123, '999')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

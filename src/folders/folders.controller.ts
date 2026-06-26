@@ -28,20 +28,14 @@ export class FoldersController {
     return this.foldersService.create(user.id, createFolderDto);
   }
 
-  @Get()
-  findAll(@GetUser() user: RequestUser) {
-    return this.foldersService.findAll(user.id);
-  }
-
   @Get(':id')
   findOne(@GetUser() user: RequestUser, @Param('id') id: string) {
-    return this.foldersService.findOne(user.id, +id);
+    return this.foldersService.findOne(user.id, id);
   }
 
   @Patch(':id')
   update(
     @GetUser() user: RequestUser,
-    @Param('id') id: string,
     @Body() updateFolderDto: UpdateFolderDto,
   ) {
     return this.foldersService.update(user.id, updateFolderDto);
@@ -49,6 +43,6 @@ export class FoldersController {
 
   @Delete(':id')
   remove(@GetUser() user: RequestUser, @Param('id') id: string) {
-    return this.foldersService.remove(user.id, +id);
+    return this.foldersService.remove(user.id, id);
   }
 }

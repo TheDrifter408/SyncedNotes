@@ -1,4 +1,3 @@
-import { PartialType } from '@nestjs/swagger';
-import { CreateFolderDto } from './create-folder.dto';
+import { BaseFolderDto } from './base-folder.dto';
 
-export class UpdateFolderDto extends PartialType(CreateFolderDto) {}
+export class UpdateFolderDto extends BaseFolderDto {}
