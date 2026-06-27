@@ -8,7 +8,7 @@ export class FoldersService {
   constructor(private prisma: Prisma) {}
 
   async create(userId: number, createFolderDto: CreateFolderDto) {
-    const found = await this.prisma.folder.findUnique({
+    const found = await this.prisma.folder.findFirst({
       where: {
         id: createFolderDto.id,
         userId: userId,
@@ -71,10 +71,13 @@ export class FoldersService {
   }
 
   async remove(userId: number, folderId: string) {
-    const folderToDelete = await this.prisma.folder.delete({
+    const folderToDelete = await this.prisma.folder.update({
       where: {
         id: folderId,
         userId,
+      },
+      data: {
+        isDeleted: true,
       },
     });
     if (!folderToDelete) {
