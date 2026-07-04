@@ -79,7 +79,7 @@ export class SyncService {
         });
         if (serverFolder) {
           if (serverFolder.userId !== userId) continue;
-          if (serverFolder.updatedAt < serverFolder.updatedAt) {
+          if (serverFolder.updatedAt < clientFolder.updatedAt) {
             tracking.folderConflicts.push(serverFolder.id);
             continue;
           }

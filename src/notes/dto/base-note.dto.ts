@@ -5,10 +5,8 @@ import {
   IsString,
   IsUUID,
   IsBoolean,
-  IsObject,
   IsOptional,
 } from 'class-validator';
-import { Prisma } from 'generated/prisma/browser';
 
 export class BaseNoteDto {
   @IsUUID()
@@ -23,9 +21,9 @@ export class BaseNoteDto {
   @IsString()
   folderId!: string | null;
 
-  @IsObject()
+  @IsString()
   @IsNotEmpty()
-  content!: Prisma.InputJsonValue; // To Map seamlessly to Prisma's native JSON typing
+  content!: string; // To Map seamlessly to Prisma's native JSON typing
 
   @IsString()
   searchContent!: string;

@@ -16,7 +16,7 @@ import { FoldersModule } from './folders/folders.module';
     }),
     NotesModule,
     AuthModule,
-    FoldersModule
+    FoldersModule,
   ],
   controllers: [AppController],
   providers: [
@@ -25,7 +25,7 @@ import { FoldersModule } from './folders/folders.module';
     {
       provide: APP_INTERCEPTOR,
       useClass: TransformResponseInterceptor,
-    }
+    },
   ],
 })
-export class AppModule { }
+export class AppModule {}
