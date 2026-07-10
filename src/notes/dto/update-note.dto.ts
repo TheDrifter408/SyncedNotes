@@ -1,6 +1,14 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { BaseNoteDto } from './base-note.dto';
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import {
+  IsBoolean,
+  IsDate,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class UpdateNoteDto extends PartialType(BaseNoteDto) {
   @IsUUID()
@@ -11,5 +19,19 @@ export class UpdateNoteDto extends PartialType(BaseNoteDto) {
   title!: string;
 
   @IsString()
+  searchContent!: string;
+
+  @IsString()
   content!: string;
+
+  @IsOptional()
+  @IsString()
+  folderId!: string | null;
+
+  @IsDate()
+  @Type(() => Date)
+  updatedAt!: Date;
+
+  @IsBoolean()
+  isDeleted!: boolean;
 }

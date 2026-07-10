@@ -1,13 +1,23 @@
 import { Prisma } from '../prisma/prisma.service';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { SyncNotesDto } from './dto/sync-notes.dto';
+import { SyncChangesDto, ChangeRecordDto } from './dto/sync-changes.dto';
 import { NoteWhereUniqueInput } from 'generated/prisma/models';
 import { UpstreamResult } from '@/types';
-import { Folder } from '@prisma/client';
+import { Folder, Prisma as PrismaClient } from '@prisma/client';
+import { CreateFolderDto } from '@/folders/dto/create-folder.dto';
+import { plainToInstance } from 'class-transformer';
+import { UpdateFolderDto } from '@/folders/dto/update-folder.dto';
+import { BaseFolderDto } from '@/folders/dto/base-folder.dto';
+import { BaseNoteDto } from './dto/base-note.dto';
+import { CreateNoteDto } from './dto/create-note.dto';
+import { UpdateNoteDto } from './dto/update-note.dto';
 
 @Injectable()
 export class SyncService {
   PAGE_SIZE = 100;
+  private readonly logger = new Logger(SyncService.name);
+
   constructor(private prisma: Prisma) {}
 
   async processSync(userId: number, incomingPayload: SyncNotesDto) {
@@ -88,6 +98,7 @@ export class SyncService {
             where: { id: clientFolder.id },
             data: {
               ...clientFolder,
+              userId,
               color: clientFolder.color || '#ffffff',
               deletedAt: clientFolder.isDeleted ? serverTime : null,
               updatedAt: clientFolder.updatedAt,
@@ -226,5 +237,215 @@ export class SyncService {
       );
     }
     return { notes: targetedNotes, nextCursor, hasMore };
+  }
+
+  // -------------------------------------------------------------------------
+  // Change‑record based sync (new)
+  // -------------------------------------------------------------------------
+
+  async processSyncChanges(userId: number, dto: SyncChangesDto) {
+    const lastSyncedAt = dto.lastSyncedAt ?? new Date(0);
+    const serverTime = new Date();
+    const processedChangeIds: number[] = [];
+
+    // Apply all incoming change records in a single transaction
+    await this.prisma.$transaction(async (tx) => {
+      for (const change of dto.changes) {
+        try {
+          const payload = JSON.parse(change.payload) as unknown;
+
+          if (change.changeEntityType === 'folder') {
+            let folderDto: BaseFolderDto | null = null;
+            switch (change.changeOperation) {
+              case 'create':
+                folderDto = plainToInstance(CreateFolderDto, payload);
+                break;
+              case 'update':
+                folderDto = plainToInstance(UpdateFolderDto, payload);
+                break;
+              default:
+                folderDto = null;
+            }
+            await this.applyFolderChangeRecord(
+              tx,
+              userId,
+              change,
+              folderDto,
+              serverTime,
+            );
+          } else {
+            let noteDto: BaseNoteDto | null = null;
+            switch (change.changeOperation) {
+              case 'create':
+                noteDto = plainToInstance(CreateNoteDto, payload);
+                break;
+              case 'update':
+                noteDto = plainToInstance(UpdateNoteDto, payload);
+                break;
+              default:
+                noteDto = null;
+            }
+            await this.applyNoteChangeRecord(
+              tx,
+              userId,
+              change,
+              noteDto,
+              serverTime,
+            );
+          }
+
+          if (change.id !== undefined) {
+            processedChangeIds.push(change.id);
+          }
+        } catch (err) {
+          this.logger.error(
+            `Failed to apply change record ${change.id} (${change.changeEntityType}/${change.changeOperation}/${change.entityId})`,
+            err,
+          );
+        }
+      }
+    });
+
+    // No upstream reconciliation needed — change records are applied directly.
+    // No entities were "processed" in the old sense (they were applied, not skipped).
+    const emptyTracking: UpstreamResult = {
+      processedFolderIds: [],
+      processedNoteIds: [],
+      folderConflicts: [],
+      noteConflicts: [],
+    };
+
+    // Fetch downstream changes (same logic as the existing sync)
+    const downstreamFolders = await this.fetchDownstreamFolders(
+      userId,
+      lastSyncedAt,
+      serverTime,
+      emptyTracking,
+    );
+
+    const {
+      notes: downstreamNotes,
+      nextCursor,
+      hasMore,
+    } = await this.fetchDownstreamNotes(
+      userId,
+      lastSyncedAt,
+      serverTime,
+      dto.cursor,
+      emptyTracking,
+    );
+
+    return {
+      processedChangeIds,
+      folders: downstreamFolders,
+      notes: downstreamNotes,
+      nextCursor,
+      hasMore,
+      serverTime: serverTime.toISOString(),
+    };
+  }
+
+  // -------------------------------------------------------------------------
+  // Helpers — apply a single ChangeRecord to the database
+  // -------------------------------------------------------------------------
+
+  private async applyNoteChangeRecord(
+    tx: PrismaClient.TransactionClient,
+    userId: number,
+    change: ChangeRecordDto,
+    payload: BaseNoteDto | null,
+    serverTime: Date,
+  ) {
+    switch (change.changeOperation) {
+      case 'create': {
+        await tx.note.create({
+          data: {
+            ...payload,
+            id: change.entityId,
+            userId,
+          } as PrismaClient.NoteUncheckedCreateInput,
+        });
+        break;
+      }
+      case 'update': {
+        const existing = await tx.note.findUnique({
+          where: { id: change.entityId },
+          select: { id: true, userId: true },
+        });
+        if (!existing || existing.userId !== userId) return;
+
+        await tx.note.update({
+          where: { id: change.entityId },
+          data: {
+            ...payload,
+            userId,
+          } as PrismaClient.NoteUncheckedUpdateInput,
+        });
+        break;
+      }
+      case 'delete': {
+        const existing = await tx.note.findUnique({
+          where: { id: change.entityId },
+          select: { id: true, userId: true },
+        });
+        if (!existing || existing.userId !== userId) return;
+
+        await tx.note.update({
+          where: { id: change.entityId },
+          data: { isDeleted: true, deletedAt: serverTime },
+        });
+        break;
+      }
+    }
+  }
+
+  private async applyFolderChangeRecord(
+    tx: PrismaClient.TransactionClient,
+    userId: number,
+    change: ChangeRecordDto,
+    payload: BaseFolderDto | null,
+    serverTime: Date,
+  ) {
+    switch (change.changeOperation) {
+      case 'create': {
+        await tx.folder.create({
+          data: {
+            ...payload,
+            id: change.entityId,
+            userId,
+          } as PrismaClient.FolderUncheckedCreateInput,
+        });
+        break;
+      }
+      case 'update': {
+        const existing = await tx.folder.findUnique({
+          where: { id: change.entityId },
+          select: { id: true, userId: true },
+        });
+        if (!existing || existing.userId !== userId) return;
+
+        await tx.folder.update({
+          where: { id: change.entityId },
+          data: {
+            ...payload,
+            userId,
+          } as PrismaClient.FolderUncheckedUpdateInput,
+        });
+        break;
+      }
+      case 'delete': {
+        const existing = await tx.folder.findUnique({
+          where: { id: change.entityId },
+          select: { id: true, userId: true },
+        });
+        if (!existing || existing.userId !== userId) return;
+
+        await tx.folder.update({
+          where: { id: change.entityId },
+          data: { isDeleted: true, deletedAt: serverTime },
+        });
+        break;
+      }
+    }
   }
 }

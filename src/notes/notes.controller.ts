@@ -16,6 +16,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt.auth-guard';
 import type { RequestUser } from 'src/auth/types/JwtPayload';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { SyncNotesDto } from './dto/sync-notes.dto';
+import { SyncChangesDto } from './dto/sync-changes.dto';
 import { SyncService } from './sync.service';
 import { SearchNotesDto } from './dto/search-notes.dto';
 
@@ -73,5 +74,13 @@ export class NotesController {
   @Post('sync')
   async sync(@GetUser() user: RequestUser, @Body() syncDto: SyncNotesDto) {
     return this.syncService.processSync(user.id, syncDto);
+  }
+
+  @Post('sync/changes')
+  async syncChanges(
+    @GetUser() user: RequestUser,
+    @Body() syncChangesDto: SyncChangesDto,
+  ) {
+    return this.syncService.processSyncChanges(user.id, syncChangesDto);
   }
 }
