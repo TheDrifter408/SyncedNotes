@@ -1,32 +1,25 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsDate,
   IsNotEmpty,
+  IsOptional,
   IsString,
   IsUUID,
-  IsBoolean,
-  IsOptional,
 } from 'class-validator';
 
-export class BaseNoteDto {
+export class BaseFolderDto {
   @IsUUID()
   @IsNotEmpty()
   id!: string; // This will be generated on the client side
 
   @IsString()
   @IsNotEmpty()
-  title!: string;
+  name!: string;
 
   @IsOptional()
   @IsString()
-  folderId!: string | null;
-
-  @IsString()
-  @IsNotEmpty()
-  content!: string; // To Map seamlessly to Prisma's native JSON typing
-
-  @IsString()
-  searchContent!: string;
+  color!: string;
 
   @IsDate()
   @Type(() => Date)
@@ -34,4 +27,8 @@ export class BaseNoteDto {
 
   @IsBoolean()
   isDeleted!: boolean;
+
+  @IsDate()
+  @Type(() => Date)
+  deletedAt: Date;
 }

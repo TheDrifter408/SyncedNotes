@@ -8,4 +8,4 @@ import { SyncService } from './sync.service';
   controllers: [NotesController],
   providers: [NotesService, SyncService, Prisma],
 })
-export class NotesModule { }
+export class NotesModule {}

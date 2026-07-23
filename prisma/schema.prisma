@@ -14,12 +14,14 @@ datasource db {
 }
 
 model User {
-  id                   Int     @id @default(autoincrement())
-  email                String  @unique
+  id                   Int      @id @default(autoincrement())
+  email                String   @unique
   name                 String?
   password_hash        String
   hashed_refresh_token String?
+  // Relations
   notes                Note[]
+  folders              Folder[]
 }
 
 model Note {
@@ -28,10 +30,31 @@ model Note {
   content       Json
   searchContent String   @default("")
   version       Int      @default(1)
-  updatedAt     DateTime
+  folderId      String?
+  folder        Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
   isDeleted     Boolean  @default(false)
+  deletedAt     DateTime?
   userId        Int
   user          User     @relation(fields: [userId], references: [id])
 
   @@index([userId, updatedAt, searchContent]) // Critical composite for fast delta indexing
+}
+
+model Folder {
+  id        String    @id @default(uuid())
+  name      String
+  color     String    @default("#ffffff")
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  // Relations
+  notes     Note[]
+
+  @@index([userId])
+  @@index([updatedAt])
 }

@@ -1,3 +1,3 @@
 import { SearchNoteResult } from './search-note-result';
-
-export type { SearchNoteResult };
+import { UpstreamResult } from './upstream-result';
+export type { SearchNoteResult, UpstreamResult };

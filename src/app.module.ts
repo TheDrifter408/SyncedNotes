@@ -7,6 +7,7 @@ import { NotesModule } from './notes/notes.module';
 import { AuthModule } from './auth/auth.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TransformResponseInterceptor } from './interceptors/transformResponse.interceptor';
+import { FoldersModule } from './folders/folders.module';
 
 @Module({
   imports: [
@@ -14,7 +15,8 @@ import { TransformResponseInterceptor } from './interceptors/transformResponse.i
       envFilePath: '.env.development.local',
     }),
     NotesModule,
-    AuthModule
+    AuthModule,
+    FoldersModule,
   ],
   controllers: [AppController],
   providers: [
@@ -23,7 +25,7 @@ import { TransformResponseInterceptor } from './interceptors/transformResponse.i
     {
       provide: APP_INTERCEPTOR,
       useClass: TransformResponseInterceptor,
-    }
+    },
   ],
 })
-export class AppModule { }
+export class AppModule {}

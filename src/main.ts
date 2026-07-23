@@ -1,11 +1,16 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { BadRequestException, ValidationPipe } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
+import { json, urlencoded } from 'express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Support large document sync payloads (gzip-compressed Lexical editor JSON)
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ limit: '50mb', extended: true }));
 
   const config = new DocumentBuilder()
     .setTitle('Notes API Swagger')
@@ -31,20 +36,6 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.useGlobalPipes(
-    new ValidationPipe({
-      exceptionFactory: (errors) => {
-        const result = errors.reduce((acc, error) => {
-          const constraints = error.constraints
-            ? Object.values(error.constraints)
-            : [];
-          if (constraints) {
-            acc[error.property] = constraints[0];
-          }
-          return acc;
-        }, {});
-        return new BadRequestException({ errors: result });
-      },
-    }),
     new ValidationPipe({
       whitelist: true,
       transform: true,
