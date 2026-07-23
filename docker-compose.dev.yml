@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:15
+    container_name: notes-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: notesdb
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      target: deps
+    container_name: notes-app-dev
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    volumes:
+      # Hot-reload: mount source directories (not node_modules or generated)
+      - ./src:/usr/src/app/src
+      - ./test:/usr/src/app/test
+      # Schema & migrations — edit from host, run prisma commands from host
+      - ./prisma/migrations:/usr/src/app/prisma/migrations
+      - ./prisma/schema.prisma:/usr/src/app/prisma/schema.prisma
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/notesdb
+      JWT_SECRET: dev-jwt-secret-change-me
+      JWT_REFRESH_SECRET: dev-jwt-refresh-secret-change-me
+      JWT_ACCESS_TOKEN_MAX_AGE: '900000'
+      JWT_REFRESH_TOKEN_MAX_AGE: '604800000'
+      PORT: '3000'
+    # Generate Prisma client (picks up schema changes) then watch
+    command: sh -c "npx prisma generate && pnpm run start:dev"
+    depends_on:
+      - db
+
+volumes:
+  postgres_data_dev:
