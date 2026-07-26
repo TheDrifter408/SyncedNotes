@@ -16,6 +16,11 @@ import { JwtAuthGuard } from './guards/jwt.auth-guard';
 import type { RequestUser } from './types/JwtPayload';
 import { GetUser } from './decorators/get-user.decorator';
 import { AuthGuard } from '@nestjs/passport';
+import { VerifyEmailDto } from './dto/verify-email.dto';
+import { Throttle } from '@nestjs/throttler';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ResendOtpDto } from './dto/resend-otp.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -51,6 +56,42 @@ export class AuthController {
   signout(@Res({ passthrough: true }) response: Response) {
     this.authService.removeCookies(response);
     return { message: 'Signed out successfully' };
+  }
+
+  @Post('verify-email')
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.verifyEmail(dto.email, dto.otp);
+    this.authService.setCookies(response, {
+      access_token: result.access_token,
+      refresh_token: result.refresh_token,
+    });
+    return {
+      message: 'User verified successfully',
+      user: result.user,
+    };
+  }
+
+  @Throttle({ default: { limit: 1, ttl: 60_000 } })
+  @Post('resend-otp')
+  async resendOtp(@Body() dto: ResendOtpDto) {
+    await this.authService.resendOtp(dto.email);
+    return { message: 'OTP resent successfully' };
+  }
+
+  @Throttle({ default: { limit: 1, ttl: 60_000 } })
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    await this.authService.forgotPassword(dto.email);
+    return { message: 'Password reset link sent successfully' };
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.authService.resetPassword(dto.token, dto.password);
+    return { message: 'Password reset successfully' };
   }
 
   @UseGuards(JwtAuthGuard)

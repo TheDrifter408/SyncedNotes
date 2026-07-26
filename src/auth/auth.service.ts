@@ -164,12 +164,12 @@ export class AuthService {
       user.password_hash,
     );
 
-    if (!user.isVerified) {
-      throw new UnauthorizedException('User not verified');
-    }
-
     if (!passwordHashMatches) {
       throw new UnauthorizedException('Invalid Credentials');
+    }
+
+    if (!user.isVerified) {
+      throw new UnauthorizedException('User not verified');
     }
 
     if (passwordHashMatches) {
@@ -258,7 +258,9 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      return {
+        message: 'If email exist, a reset link has been sent to your email',
+      };
     }
 
     const passwordResetToken = this.generateResetToken();
@@ -272,9 +274,15 @@ export class AuthService {
         passwordResetTokenExpiresAt: new Date(Date.now() + 3600000),
       },
     });
-    // TODO:
-    // 1. Send the password reset email and update template to include the reset link
-    await this.mailService.sendPasswordResetEmail(email, passwordResetToken);
+    const frontendUrl = this.configService.get<string>(
+      'FRONTEND_URL',
+      'http://localhost:5173',
+    );
+
+    await this.mailService.sendPasswordResetEmail(
+      email,
+      `${frontendUrl}/auth/reset-password?token=${passwordResetToken}`,
+    );
 
     return { message: 'Password reset email sent' };
   }
@@ -414,19 +422,21 @@ export class AuthService {
       where: { email },
     });
 
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (user.isVerified) {
-      throw new BadRequestException('User is already verified');
+    if (!user || user.isVerified) {
+      return {
+        message:
+          'If your email is registered, you will receive an OTP shortly.',
+      };
     }
 
     const otp = this.generateOtp();
 
     await this.prisma.user.update({
       where: { email },
-      data: { otpCode: otp },
+      data: {
+        otpCode: otp,
+        otpCodeExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      },
     });
 
     await this.mailService.sendVerificationEmail(email, otp);
