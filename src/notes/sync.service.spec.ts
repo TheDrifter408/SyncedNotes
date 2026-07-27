@@ -1,5 +1,4 @@
 import { Prisma } from '../prisma/prisma.service';
-import { NotesController } from './notes.controller';
 import { SyncService } from './sync.service';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -8,11 +7,13 @@ describe('SyncService', () => {
   let prisma: Prisma;
 
   const mockPrisma = {
-    $transaction: jest.fn((callback) => callback(mockPrisma)),
+    $transaction: jest.fn((callback: (prisma: Prisma) => void) =>
+      callback(prisma),
+    ),
     note: {
       findUnique: jest.fn(),
       upsert: jest.fn(),
-    }
+    },
   };
 
   beforeEach(async () => {
@@ -20,9 +21,10 @@ describe('SyncService', () => {
       providers: [
         SyncService,
         {
-          provide: Prisma, useValue: mockPrisma
-        }
-      ]
+          provide: Prisma,
+          useValue: prisma,
+        },
+      ],
     }).compile();
 
     service = module.get<SyncService>(SyncService);
@@ -37,17 +39,19 @@ describe('SyncService', () => {
     const userId = 1;
 
     const existingNote = {
-      id: "note-1",
+      id: 'note-1',
       updatedAt: new Date('2023-01-01T10:00:00Z'),
-      userId: 1
+      userId: 1,
     };
 
     const incomingNote = {
-      id: "note-1",
-      title: "new title",
-      content: "new content",
+      id: 'note-1',
+      title: 'new title',
+      content: 'new content',
       updatedAt: new Date('2023-01-01T11:00:00Z'),
       isDeleted: false,
+      folderId: null,
+      searchContent: '',
     };
 
     mockPrisma.note.findUnique.mockResolvedValue(existingNote);
@@ -56,50 +60,54 @@ describe('SyncService', () => {
     const result = await service.processSync(userId, { notes: [incomingNote] });
 
     expect(mockPrisma.note.upsert).toHaveBeenCalled();
-    expect(result[0].title).toBe('new title');
+    expect(result?.notes[0]?.title).toBe('new title');
 
   });
 
   it('Should return the server verson if the server version is newer', async () => {
     const userId = 1;
     const existingNote = {
-      id: "note-1",
-      title: "Server title",
-      content: "new content",
+      id: 'note-1',
+      title: 'Server title',
+      content: 'new content',
       updatedAt: new Date('2023-01-01T12:00:00Z'),
       userId: 1,
     };
 
     const incomingNote = {
-      id: "note-1",
+      id: 'note-1',
       title: 'client title',
       content: 'old content',
       updatedAt: new Date('2023-01-01T11:00:00Z'),
       isDeleted: false,
-    }
+      folderId: null,
+      searchContent: '',
+    };
 
     mockPrisma.note.findUnique.mockResolvedValue(existingNote);
     const result = await service.processSync(userId, { notes: [incomingNote] });
 
     expect(mockPrisma.note.upsert).not.toHaveBeenCalled();
-    expect(result[0].title).toBe('Server title');
+    expect(result?.notes[0]?.title).toBe('Server title');
   });
 
   it('Should skip notes that do not belong to the user', async () => {
     const userId = 1;
     const existingNote = {
-      id: "note-1",
-      title: "some title",
+      id: 'note-1',
+      title: 'some title',
       userId: 999,
       updatedAt: new Date(),
     };
 
     const incomingNote = {
-      id: "note-1",
-      title: "some new title",
+      id: 'note-1',
+      title: 'some new title',
       content: 'content 2',
       updatedAt: new Date(),
       isDeleted: false,
+      folderId: null,
+      searchContent: '',
     };
 
     mockPrisma.note.findUnique.mockResolvedValue(existingNote);
@@ -107,6 +115,5 @@ describe('SyncService', () => {
 
     expect(mockPrisma.note.upsert).not.toHaveBeenCalled();
     expect(result).toHaveLength(0);
-  })
-
-})
+  });
+});

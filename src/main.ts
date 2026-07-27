@@ -6,7 +6,9 @@ import { json, urlencoded } from 'express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: false,
+  });
 
   // Support large document sync payloads (gzip-compressed Lexical editor JSON)
   app.use(json({ limit: '50mb' }));

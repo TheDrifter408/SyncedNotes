@@ -20,6 +20,14 @@ services:
     restart: unless-stopped
     ports:
       - '3000:3000'
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/notesdb
+      JWT_SECRET: 64kxOks9f4S88idrZyWDU5kaWP3jPfpdU9iCmOczWM6+MuGdppOSV1sibRhBh89w5KyyeyG5ASRm9Mc9bXtWog==
+      JWT_REFRESH_SECRET: ij8vocyGm8QeCidL4FtKvJpbhSErS8mDSApN0b4A+Uw8eLFVBYo8ZRv7P6Yfg3vLak6k/5Jus3B3m0L3OoniOg==
+      JWT_ACCESS_TOKEN_MAX_AGE: '900000'
+      JWT_REFRESH_TOKEN_MAX_AGE: '604800000'
+      PORT: '3000'
     volumes:
       # Hot-reload: mount source directories (not node_modules or generated)
       - ./src:/usr/src/app/src
@@ -27,16 +35,8 @@ services:
       # Schema & migrations — edit from host, run prisma commands from host
       - ./prisma/migrations:/usr/src/app/prisma/migrations
       - ./prisma/schema.prisma:/usr/src/app/prisma/schema.prisma
-    environment:
-      NODE_ENV: development
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/notesdb
-      JWT_SECRET: dev-jwt-secret-change-me
-      JWT_REFRESH_SECRET: dev-jwt-refresh-secret-change-me
-      JWT_ACCESS_TOKEN_MAX_AGE: '900000'
-      JWT_REFRESH_TOKEN_MAX_AGE: '604800000'
-      PORT: '3000'
     # Generate Prisma client (picks up schema changes) then watch
-    command: sh -c "npx prisma generate && pnpm run start:dev"
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && pnpm run start:dev"
     depends_on:
       - db
 
