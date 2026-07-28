@@ -1,13 +1,13 @@
 # Stage 1: Install dependencies and generate Prisma client
 # Used by docker-compose.dev.yml as the dev target
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /usr/src/app
 
 # Copy dependency manifests and workspace config (needed by pnpm)
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json nest-cli.json ./
 
 RUN pnpm install --frozen-lockfile
 
@@ -28,7 +28,7 @@ RUN pnpm prune --prod
 
 # ------------------------------------------------------------------- #
 # Stage 3: Production runner
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
@@ -50,4 +50,4 @@ RUN chmod +x entrypoint.sh
 EXPOSE 3000
 
 ENTRYPOINT ["./entrypoint.sh"]
-CMD ["node", "dist/src/main.js"]
+CMD ["node", "dist/main.js"]

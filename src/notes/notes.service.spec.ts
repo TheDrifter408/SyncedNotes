@@ -6,7 +6,7 @@ import { SyncService } from './sync.service';
 
 describe('NotesService', () => {
   let service: NotesService;
-
+  let prisma: Prisma;
   // 1. Create a Mock Prisma Object
   const mockPrisma = {
     note: {
@@ -17,7 +17,9 @@ describe('NotesService', () => {
       delete: jest.fn(),
       upsert: jest.fn(),
     },
-    $transaction: jest.fn((callback) => callback(mockPrisma)), // Mocking transactions
+    $transaction: jest.fn((callback: (prisma: Prisma) => void) =>
+      callback(mockPrisma),
+    ), // Mocking transactions
   };
 
   beforeEach(async () => {
@@ -25,7 +27,10 @@ describe('NotesService', () => {
       providers: [
         NotesService,
         SyncService,
-        { provide: Prisma, useValue: mockPrisma }, // Inject the mock
+        {
+          provide: Prisma,
+          useValue: mockPrisma,
+        }, // Inject the mock
       ],
     }).compile();
 
@@ -40,12 +45,12 @@ describe('NotesService', () => {
   describe('findOne', () => {
     it('should return a note if it exists', async () => {
       const mockNote = { id: '1', title: 'Test Note', userId: 123 };
-      mockPrisma.note.findUnique.mockResolvedValue(mockNote);
+      mockPrisma?.note?.findUnique?.mockResolvedValue(mockNote);
 
       const result = await service.findOne(123, '1');
 
       expect(result).toEqual(mockNote);
-      expect(mockPrisma.note.findUnique).toHaveBeenCalledWith({
+      expect(mockPrisma?.note?.findUnique).toHaveBeenCalledWith({
         where: { id: '1', userId: 123 },
       });
     });
