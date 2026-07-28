@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   HttpException,
   HttpStatus,
@@ -15,6 +16,8 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { BCRYPT_SALT_ROUNDS } from '../constants';
 import { Response } from 'express';
+import { MailService } from '@/mail/mail.service';
+import crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -22,6 +25,7 @@ export class AuthService {
     private readonly prisma: Prisma,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
   ) {}
 
   async create(createUserDto: CreateUserDto) {
@@ -31,40 +35,101 @@ export class AuthService {
       },
     });
 
+    if (found) {
+      if (found.isVerified) {
+        throw new HttpException(
+          'This email is already exists',
+          HttpStatus.CONFLICT,
+        );
+      } else {
+        const otp = found.otpCode ? found.otpCode : this.generateOtp();
+
+        await this.prisma.user.update({
+          where: {
+            id: found.id,
+          },
+          data: {
+            otpCode: otp,
+            otpCodeExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+          },
+        });
+
+        await this.mailService.sendVerificationEmail(found.email, otp);
+      }
+    }
+
     if (!found) {
       const hashed = await bcrypt.hash(
         createUserDto.password,
         BCRYPT_SALT_ROUNDS,
       );
-      const user = await this.prisma.user.create({
+      const otp = this.generateOtp();
+
+      await this.prisma.user.create({
         data: {
           email: createUserDto.email,
           password_hash: hashed,
+          otpCode: otp,
+          otpCodeExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
         },
       });
-      const { access_token, refresh_token } = await this.getTokens(
-        user.id,
-        user.email,
-      );
 
-      await this.updateHashedRefreshToken(user.id, refresh_token);
+      await this.mailService.sendVerificationEmail(createUserDto.email, otp);
 
-      const userObj = {
-        id: user.id,
-        email: user.email,
-      };
-
-      return {
-        refresh_token,
-        access_token,
-        user: userObj,
-      };
     }
 
     throw new HttpException(
       'This email is already exists',
       HttpStatus.CONFLICT,
     );
+  }
+
+  async verifyEmail(email: string, otp: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (
+      user.otpCode !== otp ||
+      user.otpCodeExpiresAt === null ||
+      new Date(user.otpCodeExpiresAt).getSeconds() < Date.now()
+    ) {
+      throw new BadRequestException('Invalid or expired OTP');
+    }
+
+    if (user.isVerified) {
+      throw new BadRequestException('Email already verified');
+    }
+
+    await this.prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        isVerified: true,
+        otpCode: null,
+        otpCodeExpiresAt: null,
+      },
+    });
+
+    const tokens = await this.getTokens(user.id, user.email);
+
+    await this.updateHashedRefreshToken(user.id, tokens.refresh_token);
+
+    return {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      user: {
+        id: user.id,
+        email: user.email,
+      },
+    };
   }
   // TODO: This endpoint will be used in the Admin Panel later
   findAll() {
@@ -81,7 +146,7 @@ export class AuthService {
         email: createUserDto.email,
       },
     });
-    console.log('User: ', user);
+
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -255,5 +320,13 @@ export class AuthService {
       sameSite: 'lax' as const,
       path: '/',
     });
+  }
+
+  private generateOtp(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
+  private generateResetToken(): string {
+    return crypto.randomBytes(32).toString('hex');
   }
 }
