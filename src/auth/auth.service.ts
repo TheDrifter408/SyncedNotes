@@ -37,11 +37,13 @@ export class AuthService {
 
     if (found) {
       if (found.isVerified) {
+        // The User is found and has already been verified
         throw new HttpException(
           'This email is already exists',
           HttpStatus.CONFLICT,
         );
       } else {
+        // The User is found but not verified, resend the verification email
         const otp = found.otpCode ? found.otpCode : this.generateOtp();
 
         await this.prisma.user.update({
@@ -55,10 +57,13 @@ export class AuthService {
         });
 
         await this.mailService.sendVerificationEmail(found.email, otp);
+
+        return { message: 'Verification email sent' };
       }
     }
 
     if (!found) {
+      // The User is not found, create a new one
       const hashed = await bcrypt.hash(
         createUserDto.password,
         BCRYPT_SALT_ROUNDS,
@@ -73,9 +78,10 @@ export class AuthService {
           otpCodeExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
         },
       });
-
+      // Send the verification email to the new user
       await this.mailService.sendVerificationEmail(createUserDto.email, otp);
 
+      return { message: 'Verification email sent' };
     }
 
     throw new HttpException(
@@ -95,10 +101,12 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
 
+    const now = new Date();
+
     if (
       user.otpCode !== otp ||
       user.otpCodeExpiresAt === null ||
-      new Date(user.otpCodeExpiresAt).getSeconds() < Date.now()
+      user.otpCodeExpiresAt < now
     ) {
       throw new BadRequestException('Invalid or expired OTP');
     }
@@ -155,6 +163,14 @@ export class AuthService {
       createUserDto.password,
       user.password_hash,
     );
+
+    if (!user.isVerified) {
+      throw new UnauthorizedException('User not verified');
+    }
+
+    if (!passwordHashMatches) {
+      throw new UnauthorizedException('Invalid Credentials');
+    }
 
     if (passwordHashMatches) {
       const tokens = await this.getTokens(user.id, user.email);
@@ -232,6 +248,69 @@ export class AuthService {
     await this.updateHashedRefreshToken(user.id, tokens.refresh_token);
 
     return tokens;
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const passwordResetToken = this.generateResetToken();
+
+    await this.prisma.user.update({
+      where: {
+        email,
+      },
+      data: {
+        passwordResetToken,
+        passwordResetTokenExpiresAt: new Date(Date.now() + 3600000),
+      },
+    });
+    // TODO:
+    // 1. Send the password reset email and update template to include the reset link
+    await this.mailService.sendPasswordResetEmail(email, passwordResetToken);
+
+    return { message: 'Password reset email sent' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.prisma.user.findFirst({
+      where: {
+        passwordResetToken: token,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Invalid reset token');
+    }
+
+    if (
+      user.passwordResetTokenExpiresAt &&
+      user.passwordResetTokenExpiresAt < new Date()
+    ) {
+      throw new ForbiddenException('Reset token has expired');
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS);
+
+    await this.prisma.user.update({
+      where: {
+        id: user.id,
+      },
+      data: {
+        password_hash: hashedPassword,
+        passwordResetToken: null,
+        passwordResetTokenExpiresAt: null,
+      },
+    });
+
+    return { message: 'Password reset successfully' };
   }
 
   // Helper function to generate access and refresh tokens
@@ -328,5 +407,30 @@ export class AuthService {
 
   private generateResetToken(): string {
     return crypto.randomBytes(32).toString('hex');
+  }
+
+  async resendOtp(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.isVerified) {
+      throw new BadRequestException('User is already verified');
+    }
+
+    const otp = this.generateOtp();
+
+    await this.prisma.user.update({
+      where: { email },
+      data: { otpCode: otp },
+    });
+
+    await this.mailService.sendVerificationEmail(email, otp);
+
+    return { message: 'OTP resent successfully' };
   }
 }

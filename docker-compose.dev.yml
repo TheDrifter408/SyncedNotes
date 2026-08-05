@@ -40,6 +40,9 @@ services:
       MAIL_HOST: 'mailpit'
       MAIL_PORT: '1025'
       MAIL_FROM: 'SyncNotes <noreply@syncnotes.app>'
+      MAIL_PASS: 'dev'
+      MAIL_USER: 'dev'
+      FRONTEND_URL: 'http://localhost:5173'
     volumes:
       # Hot-reload: mount source directories (not node_modules or generated)
       - ./src:/usr/src/app/src

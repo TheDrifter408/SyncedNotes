@@ -27,22 +27,9 @@ export class AuthController {
   }
 
   @Post('signup')
-  async signup(
-    @Body() createUserDto: CreateUserDto,
-    @Res({ passthrough: true }) response: Response,
-  ) {
+  async signup(@Body() createUserDto: CreateUserDto) {
     const result = await this.authService.create(createUserDto);
-
-    if (result) {
-      const { access_token, refresh_token, user } = result;
-
-      this.authService.setCookies(response, { access_token, refresh_token });
-
-      return {
-        message: 'Sign up Successfull',
-        user,
-      };
-    }
+    return result;
   }
 
   @Post('signin')

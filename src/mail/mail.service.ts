@@ -21,13 +21,13 @@ export class MailService {
     }
   }
 
-  async passwordResetEmail(to: string, otp: string) {
+  async sendPasswordResetEmail(to: string, resetLink: string) {
     try {
       await this.mailerService.sendMail({
         to,
         subject: 'Reset your SyncNotes Password',
         template: 'password-reset',
-        context: { otp },
+        context: { resetLink },
       });
       this.logger.log('Password reset email sent to ' + to);
     } catch (error) {

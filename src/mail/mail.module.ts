@@ -18,7 +18,7 @@ import { join } from 'path';
           secure: false,
           auth: {
             user: config.get<string>('MAIL_USER', 'dev'),
-            pass: config.get<string>('MAIL_PASSWORD', 'dev'),
+            pass: config.get<string>('MAIL_PASS', 'dev'),
           },
         },
         defaults: {
@@ -38,6 +38,6 @@ import { join } from 'path';
     }),
   ],
   providers: [MailService],
-  exports: [MailerModule],
+  exports: [MailService],
 })
 export class MailModule {}
