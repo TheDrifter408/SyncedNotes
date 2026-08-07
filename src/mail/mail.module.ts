@@ -36,9 +36,13 @@ import { join } from 'path';
             from,
           },
           template: {
-
-          }
-        }
+            dir: isDev
+              ? join(process.cwd(), 'src', 'mail', 'templates')
+              : join(__dirname, 'templates'),
+            adapter: new HandlebarsAdapter(),
+            options: { strict: true },
+          },
+        };
       },
     }),
   ],
