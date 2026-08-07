@@ -20,6 +20,7 @@ services:
       - '8025:8025' # Web UI
     environment:
       MP_SMTP_AUTH_ACCEPT_ANY: 'true'
+      MP_SMTP_AUTH_ALLOW_INSECURE: 'true'
 
   app:
     build:

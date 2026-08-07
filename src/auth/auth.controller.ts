@@ -77,21 +77,18 @@ export class AuthController {
   @Throttle({ default: { limit: 1, ttl: 60_000 } })
   @Post('resend-otp')
   async resendOtp(@Body() dto: ResendOtpDto) {
-    await this.authService.resendOtp(dto.email);
-    return { message: 'OTP resent successfully' };
+    return await this.authService.resendOtp(dto.email);
   }
 
   @Throttle({ default: { limit: 1, ttl: 60_000 } })
   @Post('forgot-password')
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    await this.authService.forgotPassword(dto.email);
-    return { message: 'Password reset link sent successfully' };
+    return await this.authService.forgotPassword(dto.email);
   }
 
   @Post('reset-password')
   async resetPassword(@Body() dto: ResetPasswordDto) {
-    await this.authService.resetPassword(dto.token, dto.password);
-    return { message: 'Password reset successfully' };
+    return await this.authService.resetPassword(dto.token, dto.password);
   }
 
   @UseGuards(JwtAuthGuard)

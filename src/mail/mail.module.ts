@@ -11,30 +11,35 @@ import { join } from 'path';
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        transport: {
-          host: config.get<string>('MAIL_HOST', 'localhost'),
-          port: config.get<number>('MAIL_PORT', 1025),
+      useFactory: (config: ConfigService) => {
+        const host = config.get<string>('MAIL_HOST', 'localhost');
+        const port = config.get<number>('MAIL_PORT', 1025);
+        const user = config.get<string>('MAIL_USER', 'dev');
+        const pass = config.get<string>('MAIL_PASS', 'dev');
+        const from = config.get<string>(
+          'MAIL_FROM',
+          'SyncNotes <noreply@syncnotes.com>',
+        );
+        const isDev = config.get<string>('NODE_ENV') !== 'production';
+        const transport = {
+          host,
+          port,
           secure: false,
           auth: {
-            user: config.get<string>('MAIL_USER', 'dev'),
-            pass: config.get<string>('MAIL_PASS', 'dev'),
+            user,
+            pass,
           },
-        },
-        defaults: {
-          from: config.get<string>(
-            'MAIL_FROM',
-            'SyncNotes <noreply@syncnotes.com>',
-          ),
-        },
-        template: {
-          dir: join(__dirname, 'templates'),
-          adapter: new HandlebarsAdapter(),
-          options: {
-            strict: true,
+        };
+        return {
+          transport,
+          defaults: {
+            from,
           },
-        },
-      }),
+          template: {
+
+          }
+        }
+      },
     }),
   ],
   providers: [MailService],

@@ -169,7 +169,7 @@ export class AuthService {
     }
 
     if (!user.isVerified) {
-      throw new UnauthorizedException('User not verified');
+      throw new ForbiddenException('User not verified');
     }
 
     if (passwordHashMatches) {
