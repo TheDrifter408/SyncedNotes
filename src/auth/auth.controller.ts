@@ -39,7 +39,7 @@ export class AuthController {
 
   @Post('signin')
   async signin(
-    @Body() createUserDto: CreateUserDto,
+    @Body() createUserDto: Omit<CreateUserDto, 'name'>,
     @Res({ passthrough: true }) response: Response,
   ) {
     const { user, access_token, refresh_token } =

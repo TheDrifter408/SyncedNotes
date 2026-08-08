@@ -148,7 +148,7 @@ export class AuthService {
     return `This action returns a #${id} auth`;
   }
 
-  async signin(createUserDto: CreateUserDto) {
+  async signin(createUserDto: Omit<CreateUserDto, 'name'>) {
     const user = await this.prisma.user.findUnique({
       where: {
         email: createUserDto.email,
