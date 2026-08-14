@@ -313,6 +313,9 @@ export class AuthService {
       },
       data: {
         password_hash: hashedPassword,
+        isVerified: true,
+        otpCode: null,
+        otpCodeExpiresAt: null,
         passwordResetToken: null,
         passwordResetTokenExpiresAt: null,
       },
