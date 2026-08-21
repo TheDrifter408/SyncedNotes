@@ -84,10 +84,6 @@ export class AuthService {
       return { message: 'Verification email sent' };
     }
 
-    throw new HttpException(
-      'This email is already exists',
-      HttpStatus.CONFLICT,
-    );
   }
 
   async verifyEmail(email: string, otp: string) {
@@ -184,8 +180,6 @@ export class AuthService {
         ...tokens,
       };
     }
-
-    throw new UnauthorizedException('Invalid Credentials');
   }
 
   async update(userId: number, updateUserDto: UpdateUserDto) {
@@ -281,7 +275,7 @@ export class AuthService {
 
     await this.mailService.sendPasswordResetEmail(
       email,
-      `${frontendUrl}/auth/reset-password?token=${passwordResetToken}`,
+      `${frontendUrl}/reset-password?token=${passwordResetToken}`,
     );
 
     return { message: 'Password reset email sent' };
