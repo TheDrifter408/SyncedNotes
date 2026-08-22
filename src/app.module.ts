@@ -8,15 +8,17 @@ import { AuthModule } from './auth/auth.module';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TransformResponseInterceptor } from './interceptors/transformResponse.interceptor';
 import { FoldersModule } from './folders/folders.module';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      envFilePath: '.env.development.local',
+      envFilePath: '.env.local',
     }),
     NotesModule,
     AuthModule,
     FoldersModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [

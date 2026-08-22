@@ -12,6 +12,16 @@ services:
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
 
+  mailpit:
+    image: axllent/mailpit
+    container_name: notes-mailpit-dev
+    ports:
+      - '1025:1025' # SMTP server
+      - '8025:8025' # Web UI
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 'true'
+      MP_SMTP_AUTH_ALLOW_INSECURE: 'true'
+
   app:
     build:
       context: .
@@ -28,6 +38,12 @@ services:
       JWT_ACCESS_TOKEN_MAX_AGE: '900000'
       JWT_REFRESH_TOKEN_MAX_AGE: '604800000'
       PORT: '3000'
+      MAIL_HOST: 'mailpit'
+      MAIL_PORT: '1025'
+      MAIL_FROM: 'SyncNotes <noreply@syncnotes.app>'
+      MAIL_PASS: 'dev'
+      MAIL_USER: 'dev'
+      FRONTEND_URL: 'http://localhost:5173'
     volumes:
       # Hot-reload: mount source directories (not node_modules or generated)
       - ./src:/usr/src/app/src

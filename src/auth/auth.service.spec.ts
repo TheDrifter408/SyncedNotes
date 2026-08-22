@@ -5,22 +5,28 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { MailService } from '@/mail/mail.service';
 
 describe('AuthService', () => {
   let service: AuthService;
   let prisma: Prisma;
+  let mailService: MailService;
 
   const mockPrismaService = {
     user: {
       create: jest.fn(),
       findUnique: jest.fn(),
       update: jest.fn().mockResolvedValue({}),
-    }
+    },
   };
 
   const mockJwtService = {
     signAsync: jest.fn().mockResolvedValue('fake_token')
-  }
+  };
+
+  const mockMailService = {
+    send: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -28,16 +34,23 @@ describe('AuthService', () => {
         AuthService,
         ConfigService,
         {
-          provide: Prisma, useValue: mockPrismaService,
+          provide: Prisma,
+          useValue: mockPrismaService,
         },
         {
-          provide: JwtService, useValue: mockJwtService,
-        }
+          provide: JwtService,
+          useValue: mockJwtService,
+        },
+        {
+          provide: MailService,
+          useValue: mockMailService,
+        },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     prisma = module.get<Prisma>(Prisma);
+    mailService = module.get<MailService>(MailService);
     jest.clearAllMocks();
   });
 
@@ -50,7 +63,7 @@ describe('AuthService', () => {
       const dto = {
         email: 'test@email.com',
         password: 'test123',
-        name: 'Test User'
+        name: 'Test User',
       };
 
       mockPrismaService.user.create.mockResolvedValue({ id: 1, ...dto });
@@ -59,19 +72,21 @@ describe('AuthService', () => {
 
       expect(prisma.user.create).toHaveBeenCalled();
 
-      expect(result.user.email).toEqual(dto.email);
+      expect(result.message).toEqual('Verification email sent');
 
     });
   });
 
   describe('signin', () => {
 
-    it('should throw Not found if user doesn\'t exist', async () => {
+    it("should throw Not found if user doesn't exist", async () => {
       mockPrismaService.user.findUnique.mockResolvedValueOnce(null);
-      await expect(service.signin({
-        email: 'wrong@test.com',
-        password: 'test123',
-      })).rejects.toThrow(NotFoundException)
+      await expect(
+        service.signin({
+          email: 'wrong@test.com',
+          password: 'test123',
+        }),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw Unauthorized if password is incorrect', async () => {
@@ -82,10 +97,12 @@ describe('AuthService', () => {
         password_hash: await bcrypt.hash('correct_password', 10)
       });
 
-      await expect(service.signin({
-        email: 'test@test.com',
-        password: await bcrypt.hash('incorrect_password', 10),
-      })).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.signin({
+          email: 'test@test.com',
+          password: await bcrypt.hash('incorrect_password', 10),
+        }),
+      ).rejects.toThrow(UnauthorizedException);
 
     })
 
