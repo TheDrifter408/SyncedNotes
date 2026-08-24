@@ -6,6 +6,7 @@ import { JwtService } from '@nestjs/jwt';
 import { NotFoundException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { MailService } from '@/mail/mail.service';
+import { Response } from 'express';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -72,7 +73,7 @@ describe('AuthService', () => {
 
       expect(prisma.user.create).toHaveBeenCalled();
 
-      expect(result.message).toEqual('Verification email sent');
+      expect(result?.message).toEqual('Verification email sent');
 
     });
   });
@@ -82,10 +83,13 @@ describe('AuthService', () => {
     it("should throw Not found if user doesn't exist", async () => {
       mockPrismaService.user.findUnique.mockResolvedValueOnce(null);
       await expect(
-        service.signin({
-          email: 'wrong@test.com',
-          password: 'test123',
-        }),
+        service.signin(
+          {
+            email: 'wrong@test.com',
+            password: 'test123',
+          },
+          {} as Response
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
@@ -98,12 +102,14 @@ describe('AuthService', () => {
       });
 
       await expect(
-        service.signin({
-          email: 'test@test.com',
-          password: await bcrypt.hash('incorrect_password', 10),
-        }),
+        service.signin(
+          {
+            email: 'test@test.com',
+            password: await bcrypt.hash('incorrect_password', 10),
+          },
+          {} as Response,
+        ),
       ).rejects.toThrow(UnauthorizedException);
-
     })
 
   })

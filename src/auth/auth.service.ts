@@ -12,7 +12,6 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { Prisma } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-
 import * as bcrypt from 'bcrypt';
 import { BCRYPT_SALT_ROUNDS } from '../constants';
 import { Response } from 'express';
@@ -144,7 +143,7 @@ export class AuthService {
     return `This action returns a #${id} auth`;
   }
 
-  async signin(createUserDto: Omit<CreateUserDto, 'name'>) {
+  async signin(createUserDto: Omit<CreateUserDto, 'name'>, response: Response) {
     const user = await this.prisma.user.findUnique({
       where: {
         email: createUserDto.email,
@@ -171,13 +170,14 @@ export class AuthService {
     if (passwordHashMatches) {
       const tokens = await this.getTokens(user.id, user.email);
 
+      this.setCookies(response, tokens);
+
       return {
         user: {
           id: user.id,
           name: user.name,
           email: user.email,
         },
-        ...tokens,
       };
     }
   }

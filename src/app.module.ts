@@ -9,6 +9,7 @@ import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TransformResponseInterceptor } from './interceptors/transformResponse.interceptor';
 import { FoldersModule } from './folders/folders.module';
 import { MailModule } from './mail/mail.module';
+import { EdgeModule } from './edge/edge.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { MailModule } from './mail/mail.module';
     AuthModule,
     FoldersModule,
     MailModule,
+    EdgeModule,
   ],
   controllers: [AppController],
   providers: [

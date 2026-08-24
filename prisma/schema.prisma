@@ -85,7 +85,6 @@ model Edge {
   target    Note      @relation("IncomingEdges", fields: [targetId], references: [id], onDelete: Cascade)
   userId    Int
   user      User      @relation(fields: [userId], references: [id])
-  
 
   @@unique([sourceId, targetId])
 
