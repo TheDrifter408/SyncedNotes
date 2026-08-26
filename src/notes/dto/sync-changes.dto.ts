@@ -20,8 +20,8 @@ export class ChangeRecordDto {
   changeOperation!: 'create' | 'update' | 'delete';
 
   @IsString()
-  @IsIn(['folder', 'note'])
-  changeEntityType!: 'folder' | 'note';
+  @IsIn(['folder', 'note', 'edge'])
+  changeEntityType!: 'folder' | 'note' | 'edge';
 
   @IsString()
   @IsNotEmpty()

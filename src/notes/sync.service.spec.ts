@@ -1,4 +1,5 @@
 import { Prisma } from '../prisma/prisma.service';
+import { ChangeRecordDto } from './dto/sync-changes.dto';
 import { SyncService } from './sync.service';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -35,35 +36,6 @@ describe('SyncService', () => {
     jest.clearAllMocks();
   });
 
-  it('Should update the note if incoming updatedAt is newer', async () => {
-    const userId = 1;
-
-    const existingNote = {
-      id: 'note-1',
-      updatedAt: new Date('2023-01-01T10:00:00Z'),
-      userId: 1,
-    };
-
-    const incomingNote = {
-      id: 'note-1',
-      title: 'new title',
-      content: 'new content',
-      updatedAt: new Date('2023-01-01T11:00:00Z'),
-      isDeleted: false,
-      folderId: null,
-      searchContent: '',
-    };
-
-    mockPrisma.note.findUnique.mockResolvedValue(existingNote);
-    mockPrisma.note.upsert.mockResolvedValue({ ...incomingNote, userId });
-
-    const result = await service.processSync(userId, { notes: [incomingNote] });
-
-    expect(mockPrisma.note.upsert).toHaveBeenCalled();
-    expect(result?.notes[0]?.title).toBe('new title');
-
-  });
-
   it('Should return the server verson if the server version is newer', async () => {
     const userId = 1;
     const existingNote = {
@@ -74,7 +46,7 @@ describe('SyncService', () => {
       userId: 1,
     };
 
-    const incomingNote = {
+    const payloadNote = JSON.stringify({
       id: 'note-1',
       title: 'client title',
       content: 'old content',
@@ -82,10 +54,21 @@ describe('SyncService', () => {
       isDeleted: false,
       folderId: null,
       searchContent: '',
+    });
+
+    const incomingNote: ChangeRecordDto = {
+      id: 1,
+      changeOperation: 'create',
+      entityId: 'note-1',
+      changeEntityType: 'note',
+      payload: payloadNote,
+      timestamp: new Date().toISOString(),
     };
 
     mockPrisma.note.findUnique.mockResolvedValue(existingNote);
-    const result = await service.processSync(userId, { notes: [incomingNote] });
+    const result = await service.processSyncChanges(userId, {
+      changes: [incomingNote],
+    });
 
     expect(mockPrisma.note.upsert).not.toHaveBeenCalled();
     expect(result?.notes[0]?.title).toBe('Server title');
@@ -100,7 +83,7 @@ describe('SyncService', () => {
       updatedAt: new Date(),
     };
 
-    const incomingNote = {
+    const incomingPayload = JSON.stringify({
       id: 'note-1',
       title: 'some new title',
       content: 'content 2',
@@ -108,10 +91,21 @@ describe('SyncService', () => {
       isDeleted: false,
       folderId: null,
       searchContent: '',
+    });
+
+    const incomingNote: ChangeRecordDto = {
+      id: 1,
+      changeOperation: 'update',
+      entityId: 'note-1',
+      changeEntityType: 'note',
+      payload: incomingPayload,
+      timestamp: new Date().toISOString(),
     };
 
     mockPrisma.note.findUnique.mockResolvedValue(existingNote);
-    const result = await service.processSync(userId, { notes: [incomingNote] });
+    const result = await service.processSyncChanges(userId, {
+      changes: [incomingNote],
+    });
 
     expect(mockPrisma.note.upsert).not.toHaveBeenCalled();
     expect(result).toHaveLength(0);

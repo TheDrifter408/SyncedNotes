@@ -1,6 +1,5 @@
 import { Prisma } from '../prisma/prisma.service';
 import { Injectable, Logger } from '@nestjs/common';
-import { SyncNotesDto } from './dto/sync-notes.dto';
 import { SyncChangesDto, ChangeRecordDto } from './dto/sync-changes.dto';
 import { NoteWhereUniqueInput } from 'generated/prisma/models';
 import { UpstreamResult } from '@/types';
@@ -12,6 +11,7 @@ import { BaseFolderDto } from '@/folders/dto/base-folder.dto';
 import { BaseNoteDto } from './dto/base-note.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { UpdateNoteDto } from './dto/update-note.dto';
+import { BaseEdgeDto } from '@/edge/dto/create-edge.dto';
 
 @Injectable()
 export class SyncService {
@@ -19,144 +19,6 @@ export class SyncService {
   private readonly logger = new Logger(SyncService.name);
 
   constructor(private prisma: Prisma) {}
-
-  async processSync(userId: number, incomingPayload: SyncNotesDto) {
-    const lastSyncedAt = incomingPayload.lastSyncedAt
-      ? new Date(incomingPayload.lastSyncedAt)
-      : new Date(0);
-    const serverTimeCheckpoint = new Date();
-
-    // 1. Process all incoming modifications from the client in a transaction
-    const syncTracking = await this.handleUpstreamReconciliation(
-      userId,
-      incomingPayload,
-      serverTimeCheckpoint,
-    );
-
-    //2. Fetch changes that happened on the server side since the client's last sync
-    const downstreamFolders = await this.fetchDownstreamFolders(
-      userId,
-      lastSyncedAt,
-      serverTimeCheckpoint,
-      syncTracking,
-    );
-
-    const {
-      notes: downstreamNotes,
-      nextCursor,
-      hasMore,
-    } = await this.fetchDownstreamNotes(
-      userId,
-      lastSyncedAt,
-      serverTimeCheckpoint,
-      incomingPayload.cursor,
-      syncTracking,
-    );
-
-    return {
-      processedFolderIds: syncTracking.processedFolderIds,
-      processedNoteIds: syncTracking.processedNoteIds,
-      folderConflicts: syncTracking.folderConflicts,
-      noteConflicts: syncTracking.noteConflicts,
-      folders: downstreamFolders,
-      notes: downstreamNotes,
-      nextCursor,
-      hasMore,
-      serverTime: serverTimeCheckpoint.toString(),
-    };
-  }
-
-  private async handleUpstreamReconciliation(
-    userId: number,
-    payload: SyncNotesDto,
-    serverTime: Date,
-  ): Promise<UpstreamResult> {
-    const clientFolders = payload.folders || [];
-    const clientNotes = payload.notes || [];
-
-    const tracking: UpstreamResult = {
-      processedFolderIds: [],
-      processedNoteIds: [],
-      folderConflicts: [],
-      noteConflicts: [],
-    };
-
-    await this.prisma.$transaction(async (tx) => {
-      for (const clientFolder of clientFolders) {
-        const serverFolder = await tx.folder.findUnique({
-          where: { id: clientFolder.id },
-          select: { id: true, userId: true, updatedAt: true },
-        });
-        if (serverFolder) {
-          if (serverFolder.userId !== userId) continue;
-          if (serverFolder.updatedAt < clientFolder.updatedAt) {
-            tracking.folderConflicts.push(serverFolder.id);
-            continue;
-          }
-
-          await tx.folder.update({
-            where: { id: clientFolder.id },
-            data: {
-              ...clientFolder,
-              userId,
-              color: clientFolder.color || '#ffffff',
-              deletedAt: clientFolder.isDeleted ? serverTime : null,
-              updatedAt: clientFolder.updatedAt,
-            },
-          });
-        } else {
-          if (clientFolder.isDeleted) {
-            tracking.processedFolderIds.push(clientFolder.id);
-            continue;
-          }
-          await tx.folder.create({
-            data: {
-              ...clientFolder,
-              userId: userId,
-            },
-          });
-        }
-        tracking.processedFolderIds.push(clientFolder.id);
-      }
-
-      for (const clientNote of clientNotes) {
-        if (clientNote.folderId) {
-          const folderExists = await tx.folder.findFirst({
-            where: { id: clientNote.folderId, userId: userId },
-          });
-          if (!folderExists) clientNote.folderId = null;
-        }
-        const serverNote = await tx.note.findUnique({
-          where: { id: clientNote.id },
-          select: { id: true, userId: true, updatedAt: true },
-        });
-        if (serverNote) {
-          if (serverNote.userId !== userId) continue;
-          if (serverNote.updatedAt < serverNote.updatedAt) {
-            tracking.noteConflicts.push(clientNote.id);
-            continue;
-          }
-        }
-        if (!serverNote && clientNote.isDeleted) {
-          tracking.processedNoteIds.push(clientNote.id);
-          continue;
-        }
-
-        await tx.note.upsert({
-          where: { id: clientNote.id },
-          update: {
-            ...clientNote,
-          },
-          create: {
-            ...clientNote,
-            userId: userId,
-          },
-        });
-        tracking.processedNoteIds.push(clientNote.id);
-      }
-    });
-    return tracking;
-  }
 
   private async fetchDownstreamFolders(
     userId: number,
@@ -239,10 +101,7 @@ export class SyncService {
     return { notes: targetedNotes, nextCursor, hasMore };
   }
 
-  // -------------------------------------------------------------------------
-  // Change‑record based sync (new)
-  // -------------------------------------------------------------------------
-
+  // Change‑record based sync
   async processSyncChanges(userId: number, dto: SyncChangesDto) {
     const lastSyncedAt = dto.lastSyncedAt ?? new Date(0);
     const serverTime = new Date();
@@ -273,7 +132,7 @@ export class SyncService {
               folderDto,
               serverTime,
             );
-          } else {
+          } else if (change.changeEntityType === 'note') {
             let noteDto: BaseNoteDto | null = null;
             switch (change.changeOperation) {
               case 'create':
@@ -290,6 +149,25 @@ export class SyncService {
               userId,
               change,
               noteDto,
+              serverTime,
+            );
+          } else if (change.changeEntityType === 'edge') {
+            let edgeDto: BaseEdgeDto | null = null;
+            switch (change.changeOperation) {
+              case 'create': {
+                edgeDto = plainToInstance(BaseEdgeDto, payload);
+                break;
+              }
+              case 'update': {
+                edgeDto = plainToInstance(BaseEdgeDto, payload);
+                break;
+              }
+            }
+            await this.applyEdgeChangeRecord(
+              tx,
+              userId,
+              change,
+              edgeDto,
               serverTime,
             );
           }
@@ -443,6 +321,61 @@ export class SyncService {
         await tx.folder.update({
           where: { id: change.entityId },
           data: { isDeleted: true, deletedAt: serverTime },
+        });
+        break;
+      }
+    }
+  }
+
+  private async applyEdgeChangeRecord(
+    tx: PrismaClient.TransactionClient,
+    userId: number,
+    change: ChangeRecordDto,
+    payload: BaseEdgeDto | null,
+    serverTime: Date,
+  ) {
+    switch (change.changeOperation) {
+      case 'create': {
+        await tx.edge.create({
+          data: {
+            ...payload,
+            id: change.entityId,
+            userId,
+          } as PrismaClient.EdgeUncheckedCreateInput,
+        });
+        break;
+      }
+      case 'update': {
+        const existing = await tx.edge.findUnique({
+          where: { id: change.entityId },
+          select: { id: true, userId: true },
+        });
+
+        if (!existing || existing.userId !== userId) return;
+
+        await tx.edge.update({
+          where: { id: change.entityId },
+          data: {
+            ...payload,
+            userId,
+          } as PrismaClient.EdgeUncheckedUpdateInput,
+        });
+        break;
+      }
+      case 'delete': {
+        const existing = await tx.edge.findUnique({
+          where: { id: change.entityId },
+          select: { id: true, userId: true },
+        });
+        if (!existing || existing.userId !== userId) return;
+
+        await tx.edge.update({
+          where: { id: change.entityId },
+          data: {
+            ...payload,
+            isDeleted: true,
+            deletedAt: serverTime,
+          } as PrismaClient.EdgeUncheckedUpdateInput,
         });
         break;
       }

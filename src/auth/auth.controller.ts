@@ -42,14 +42,7 @@ export class AuthController {
     @Body() createUserDto: Omit<CreateUserDto, 'name'>,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { user, access_token, refresh_token } =
-      await this.authService.signin(createUserDto);
-
-    this.authService.setCookies(response, { access_token, refresh_token });
-
-    return {
-      user,
-    };
+    return this.authService.signin(createUserDto, response);
   }
 
   @Post('signout')
