@@ -10,6 +10,7 @@ import { TransformResponseInterceptor } from './interceptors/transformResponse.i
 import { FoldersModule } from './folders/folders.module';
 import { MailModule } from './mail/mail.module';
 import { EdgeModule } from './edge/edge.module';
+import { SyncModule } from './sync/sync.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { EdgeModule } from './edge/edge.module';
     FoldersModule,
     MailModule,
     EdgeModule,
+    SyncModule,
   ],
   controllers: [AppController],
   providers: [

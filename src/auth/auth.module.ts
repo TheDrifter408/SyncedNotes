@@ -8,7 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { Prisma } from 'src/prisma/prisma.service';
 import { JwtRefreshStrategy } from './strategies/jwt.refresh-strategy';
-import { MailService } from '@/mail/mail.service';
+import { MailService } from '../mail/mail.service';
 
 @Module({
   imports: [

@@ -1,3 +1,4 @@
+import { ENTITY_TYPE, OPERATION } from '../../constants';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -16,12 +17,12 @@ export class ChangeRecordDto {
   id?: number;
 
   @IsString()
-  @IsIn(['create', 'update', 'delete'])
-  changeOperation!: 'create' | 'update' | 'delete';
+  @IsIn([Object.values(OPERATION)])
+  changeOperation!: OPERATION;
 
   @IsString()
-  @IsIn(['folder', 'note', 'edge'])
-  changeEntityType!: 'folder' | 'note' | 'edge';
+  @IsIn(Object.values(ENTITY_TYPE))
+  changeEntityType!: ENTITY_TYPE;
 
   @IsString()
   @IsNotEmpty()
